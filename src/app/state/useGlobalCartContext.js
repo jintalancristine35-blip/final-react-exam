@@ -1,0 +1,92 @@
+// state/useGlobalCartContext.js
+'use client';
+
+import { createContext, useContext, useState, useMemo } from 'react';
+import initialProducts from '../../data/products';
+
+// Helper function to calculate subtotal
+export const calculateSubtotal = (price, quantity) => price * quantity;
+
+// Create the context
+const GlobalCartContext = createContext(null);
+
+// Provider component
+export function GlobalCartProvider({ children }) {
+    // 1. **Initial State for all products** - Reset to static initial data on every render/refresh
+    const [products, setProducts] = useState(initialProducts);
+    
+    // 2. **Primary Cart State**
+    const [cart, setCart] = useState({}); 
+
+    // --- Inventory Function ---
+    const addProduct = (newProduct) => {
+        setProducts(prevProducts => {
+            // Add the new product to the beginning of the list for easy visibility
+            return [newProduct, ...prevProducts];
+        });
+    };
+    // -----------------------------
+    
+    // Function to update cart state
+    const handleUpdateCart = (productId, newQuantity) => {
+        setCart(prevCart => {
+            if (newQuantity === 0) {
+                const { [productId]: removed, ...rest } = prevCart;
+                return rest;
+            }
+            return {
+                ...prevCart,
+                [productId]: newQuantity,
+            };
+        });
+    };
+    
+    // --- Computation Logic ---
+
+    // Filter products to get only items in the cart, and compute subtotal
+    const cartItemsData = useMemo(() => {
+        return products
+            .filter(p => cart[p.id] > 0)
+            .map(p => ({
+                ...p,
+                stockLevel: p.quantity,
+                cartQuantity: cart[p.id],
+                subtotal: calculateSubtotal(p.price, cart[p.id]), 
+            }));
+    }, [products, cart]);
+
+    // Compute and display the overall total
+    const overallTotal = useMemo(() => {
+        return cartItemsData.reduce((acc, item) => acc + item.subtotal, 0);
+    }, [cartItemsData]);
+    
+    // Total number of items
+    const totalCartItems = useMemo(() => {
+        return Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+    }, [cart]);
+
+    const value = {
+        products, 
+        cart, 
+        cartItemsData, 
+        handleUpdateCart, 
+        overallTotal, 
+        totalCartItems,
+        addProduct,
+    };
+
+    return (
+        <GlobalCartContext.Provider value={value}>
+            {children}
+        </GlobalCartContext.Provider>
+    );
+}
+
+// Custom hook to use the cart context
+export function useGlobalCart() {
+    const context = useContext(GlobalCartContext);
+    if (!context) {
+        throw new Error('useGlobalCart must be used within a GlobalCartProvider');
+    }
+    return context;
+}

@@ -1,65 +1,103 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
+import ProductList from '../components/ProductList';
+import ProductModal from '../components/ProductModal';
+
+import { useGlobalCart } from '../app/state/useGlobalCartContext';
+
+export default function HomePage() {
+  // Use the global hook as the source of truth for cart data and functions
+  const { 
+    products, 
+    cart, 
+    handleUpdateCart, 
+    overallTotal, 
+    totalCartItems 
+  } = useGlobalCart();
+
+  // State local to HomePage (Product viewing/filtering)
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const handleOpenProductDetails = (product) => {
+    setSelectedProduct(product);
+  };
+
+  const handleCloseProductDetails = () => { 
+    setSelectedProduct(null);
+  };
+
+  useEffect(() => {
+    if (selectedCategory !== 'All') {
+        setSelectedCategory('All');
+    }
+  }, [products.length]); 
+
+  // Req 1: Filter the product list (remains local)
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === 'All') {
+      return products;
+    }
+    return products.filter(product => product.category === selectedCategory);
+  }, [products, selectedCategory]);
+	
+	return (
+		<>
+			<div className="container mx-auto p-4 max-w-9xl pb-28">
+				<h1 className="text-4xl font-extrabold text-red-600 mb-1">Product Management App</h1>
+
+				{/* Product List Component */}
+				<ProductList
+					products={filteredProducts}
+					cart={cart}
+					onUpdateCart={handleUpdateCart}
+					selectedCategory={selectedCategory}
+					setSelectedCategory={setSelectedCategory}
+					onOpenProductDetails={handleOpenProductDetails} // NEW: Pass handler
+				/>
+
+				{/* Total Display and Checkout Button (Fixed to the bottom) */}
+				<div className="fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-300 shadow-2xl">
+					<div className="container mx-auto p-4 max-w-7xl flex justify-between items-center">
+						<h2 className="text-2xl font-bold text-gray-800">Overall Cart Total ({totalCartItems} Items): 
+							<span className="text-red-600 ml-2">
+								${overallTotal.toFixed(2)}
+							</span>
+						</h2>
+
+						{/* View Cart Button */}
+						<Link 
+							href="/cart" 
+							className={`py-3 px-8 text-white font-bold rounded-lg shadow-lg transition-transform transform ${
+								totalCartItems > 0 
+									? 'bg-blue-600 hover:bg-blue-700 hover:scale-[1.02]' 
+									: 'bg-gray-400 cursor-not-allowed'
+							}`}>
+							{totalCartItems > 0 ? `Checkout (${totalCartItems} Items)` : 'Cart Empty'}
+						</Link>
+					</div>
+				</div>
+
+				{/* ADD PRODUCT BUTTON (New Link) */}
+				<div className="text-center p-6 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 mb-5">
+					<h3 className="text-xl font-semibold text-gray-700 mb-4">Inventory Management</h3>
+					<p className="text-gray-500 mb-4">Want to add a temporary product to the inventory list?</p>
+					<Link href="/add-product" className="py-3 px-8 bg-red-500 text-white font-bold rounded-lg shadow-lg hover:bg-red-600 transition-colors transform hover:scale-[1.02]">
+						Go to Add Product Page
+					</Link>
+				</div>
+			</div>
+			{/* END OF MAIN CONTAINER DIV */}
+
+			{/* RENDER PRODUCT MODAL AS A SIBLING (OUTSIDE main div) */}
+			{selectedProduct && (
+				<ProductModal 
+					product={selectedProduct} 
+					onClose={handleCloseProductDetails} 
+				/>
+			)}
+		</>
+	);
 }
